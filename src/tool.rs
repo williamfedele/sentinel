@@ -1,33 +1,49 @@
+use async_trait::async_trait;
 use notify::Result;
 use std::path::Path;
 use std::process::{Command, Output};
 use tokio::time::Instant;
 
-pub enum Tool {
-    RuffFormat,
-    RuffCheck,
+#[async_trait]
+pub trait Tool {
+    fn name(&self) -> &'static str;
+    async fn run(&self, path: &Path) -> Result<Output>;
 }
 
-pub async fn run_tool(tool: &Tool, path: &Path) -> Result<Output> {
-    match tool {
-        Tool::RuffFormat => {
-            print!("Running ruff format...");
-            // get current time
-            let now = Instant::now();
-            let output = Command::new("ruff").arg("format").arg(path).output()?;
-            let elapsed = now.elapsed();
-            println!(" ✓ ({:.2?})", elapsed);
-            return Ok(output);
-        }
-        Tool::RuffCheck => {
-            print!("Running ruff check...");
-            // get current time
-            let now = Instant::now();
-            let output = Command::new("ruff").arg("check").arg(path).output()?;
-            let elapsed = now.elapsed();
-            println!(" ✓ ({:.2?})", elapsed);
-            return Ok(output);
-        }
-        _ => return Err(notify::Error::generic("Tool not implemented".into())),
+pub struct RuffFormat;
+
+#[async_trait]
+impl Tool for RuffFormat {
+    fn name(&self) -> &'static str {
+        "ruff format"
+    }
+
+    async fn run(&self, path: &Path) -> Result<Output> {
+        print!("Running ruff format...");
+        // get current time
+        let now = Instant::now();
+        let output = Command::new("ruff").arg("format").arg(path).output()?;
+        let elapsed = now.elapsed();
+        println!(" ✓ ({:.2?})", elapsed);
+        Ok(output)
+    }
+}
+
+pub struct RuffCheck;
+
+#[async_trait]
+impl Tool for RuffCheck {
+    fn name(&self) -> &'static str {
+        "ruff check"
+    }
+
+    async fn run(&self, path: &Path) -> Result<Output> {
+        print!("Running ruff check...");
+        // get current time
+        let now = Instant::now();
+        let output = Command::new("ruff").arg("check").arg(path).output()?;
+        let elapsed = now.elapsed();
+        println!(" ✓ ({:.2?})", elapsed);
+        Ok(output)
     }
 }

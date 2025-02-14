@@ -1,6 +1,3 @@
-use crate::config::ToolConfig;
-use crate::tool::run_tool;
-use crate::utils::{display_results, get_current_time};
 use notify::event::ModifyKind;
 use notify::{recommended_watcher, Event, EventKind, RecursiveMode, Result, Watcher};
 use std::path::Path;
@@ -9,6 +6,9 @@ use std::sync::mpsc;
 use std::time::Duration;
 use tokio::time;
 use tokio::time::Instant;
+
+use crate::config::ToolConfig;
+use crate::utils::{display_results, get_current_time};
 
 pub struct Sentinel {
     dir: String,
@@ -76,7 +76,7 @@ impl Sentinel {
                 let tools = &self.tools.python_tools;
                 // Execute tools sequentially
                 for tool in tools {
-                    let result = run_tool(tool, path).await;
+                    let result = tool.run(path).await;
                     display_results(result); // Display each result immediately
                 }
                 Ok(())
