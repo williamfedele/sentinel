@@ -1,3 +1,4 @@
+use console::style;
 use notify::Result;
 use std::process::Output;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -21,10 +22,18 @@ pub fn display_results(results: Result<Output>) {
     match results {
         Ok(output) => {
             if !output.stdout.is_empty() {
-                println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+                println!(
+                    "{}: {}",
+                    style("OK").bold().green(),
+                    String::from_utf8_lossy(&output.stdout)
+                );
             }
             if !output.stderr.is_empty() {
-                println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+                println!(
+                    "{}: {}",
+                    style("ERR").bold().red(),
+                    String::from_utf8_lossy(&output.stderr)
+                );
             }
         }
         Err(e) => println!("Error: {}", e),

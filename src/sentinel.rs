@@ -1,3 +1,4 @@
+use console::style;
 use notify::event::ModifyKind;
 use notify::{recommended_watcher, Event, EventKind, RecursiveMode, Result, Watcher};
 use std::path::Path;
@@ -62,26 +63,33 @@ impl Sentinel {
     }
 
     async fn process_file(&self, path: &Path) -> Result<()> {
-        match path.extension().and_then(|e| e.to_str()) {
-            Some("py") => {
-                // time and file that changed
-                let (hour, minute, second) = get_current_time();
-                println!(
-                    "[{:0>2}:{:0>2}:{:0>2}] - File changed: {}",
-                    hour,
-                    minute,
-                    second,
-                    path.display()
-                );
-                let tools = &self.tools.python_tools;
-                // Execute tools sequentially
-                for tool in tools {
-                    let result = tool.run(path).await;
-                    display_results(result); // Display each result immediately
+        let (hour, minute, second) = get_current_time();
+        let ext = path.extension().and_then(|e| e.to_str());
+
+        if matches!(ext, Some("py")) {
+            println!(
+                "[{}] - File changed: {}",
+                style(format!("{:0>2}:{:0>2}:{:0>2}", hour, minute, second))
+                    .bold()
+                    .magenta(),
+                path.display()
+            );
+
+            match ext {
+                Some("py") => {
+                    // time and file that changed
+                    let tools = &self.tools.python_tools;
+                    // Execute tools sequentially
+                    for tool in tools {
+                        let result = tool.run(path).await;
+                        display_results(result); // Display each result immediately
+                    }
+                    Ok(())
                 }
-                Ok(())
+                _ => Ok(()), // Handle other extensions here, or do nothing
             }
-            _ => Ok(()),
+        } else {
+            Ok(())
         }
     }
 }

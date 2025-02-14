@@ -19,7 +19,7 @@ impl Tool for RuffFormat {
     }
 
     async fn run(&self, path: &Path) -> Result<Output> {
-        print!("Running ruff format...");
+        print!("Running {}...", self.name());
         // get current time
         let now = Instant::now();
         let output = Command::new("ruff").arg("format").arg(path).output()?;
@@ -38,7 +38,7 @@ impl Tool for RuffCheck {
     }
 
     async fn run(&self, path: &Path) -> Result<Output> {
-        print!("Running ruff check...");
+        print!("Running {}...", self.name());
         // get current time
         let now = Instant::now();
         let output = Command::new("ruff").arg("check").arg(path).output()?;
