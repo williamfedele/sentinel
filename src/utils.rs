@@ -23,14 +23,14 @@ pub fn display_results(results: Result<Output>) {
         Ok(output) => {
             if !output.stdout.is_empty() {
                 println!(
-                    "{}: {}",
+                    "{}\n{}",
                     style("OK").bold().green(),
                     String::from_utf8_lossy(&output.stdout)
                 );
             }
             if !output.stderr.is_empty() {
                 println!(
-                    "{}: {}",
+                    "{}\n{}",
                     style("ERR").bold().red(),
                     String::from_utf8_lossy(&output.stderr)
                 );

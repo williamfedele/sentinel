@@ -1,0 +1,5 @@
+# Example
+commands:
+  py:
+    - "ruff check {file}"
+    - "ruff format {file} -v"

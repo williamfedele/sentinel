@@ -4,7 +4,6 @@ use sentinel::Sentinel;
 
 mod config;
 mod sentinel;
-mod tool;
 mod utils;
 
 #[derive(Parser)]
@@ -16,7 +15,25 @@ struct Cli {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    let sentinel = Sentinel::new(cli.dir)?;
+    let config = match config::Config::load_config(cli.dir.clone()) {
+        Some(config) => config,
+        None => {
+            eprintln!("No config file found");
+            eprintln!("Please create a .sentinel.yaml file in the project root");
+            if cfg!(windows) {
+                eprintln!("Or create a global config file at: %APPDATA%/sentinel/global.yaml");
+            } else if cfg!(target_os = "macos") {
+                eprintln!("Or create a global config file at: $HOME/Library/Application Support/sentinel/global.yaml");
+            } else {
+                eprintln!(
+                    "Or create a global config file at: $XDG_CONFIG_HOME/sentinel/global.yaml"
+                );
+            }
+            return Ok(());
+        }
+    };
+
+    let mut sentinel = Sentinel::new(cli.dir, config)?;
     futures::executor::block_on(sentinel.watch())?;
     Ok(())
 }
