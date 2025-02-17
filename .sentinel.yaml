@@ -3,3 +3,5 @@ commands:
   py:
     - "ruff check {file}"
     - "ruff format {file} -v"
+  ts:
+    - "prettier --write {file}"
