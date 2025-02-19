@@ -130,3 +130,112 @@ impl Sentinel {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use tempfile::TempDir;
+    use tokio::fs;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_sentinel_new() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let dir = temp_dir.path().to_string_lossy().to_string();
+        let config = Config {
+            commands: HashMap::new(),
+        };
+        let sentinel = Sentinel::new(dir, config)?;
+        assert_eq!(sentinel.dir, temp_dir.path().to_string_lossy());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_sentinel_watch() -> Result<()> {
+        // TODO: Create temp file while watching
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_process_file() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let dir = temp_dir.path().to_string_lossy().to_string();
+        let mut commands = HashMap::new();
+        commands.insert("txt".to_string(), vec!["echo {file}".to_string()]);
+        let config = Config { commands };
+        let mut sentinel = Sentinel::new(dir, config)?;
+
+        let file_path = temp_dir.path().join("test.txt");
+        let _ = fs::write(&file_path, "test content");
+
+        let result = sentinel.process_file(file_path.as_path()).await;
+        assert!(result.is_ok());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_process_file_no_commands() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let dir = temp_dir.path().to_string_lossy().to_string();
+        let config = Config {
+            commands: HashMap::new(),
+        };
+        let mut sentinel = Sentinel::new(dir, config)?;
+
+        let file_path = temp_dir.path().join("test.txt");
+        let _ = fs::write(&file_path, "test content");
+
+        let result = sentinel.process_file(file_path.as_path()).await;
+        assert!(result.is_ok());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_disable_enable_watch() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let dir = temp_dir.path().to_string_lossy().to_string();
+        let config = Config {
+            commands: HashMap::new(),
+        };
+        let mut sentinel = Sentinel::new(dir.clone(), config)?;
+
+        // Initialize watcher
+        let (tx, _rx) = mpsc::channel::<Result<Event>>();
+        let mut watcher = recommended_watcher(tx)?;
+        watcher.watch(Path::new(&dir), RecursiveMode::Recursive)?;
+        sentinel.watcher = Some(watcher);
+
+        // Disable watch
+        let disable_result = sentinel.disable_watch();
+        assert!(disable_result.is_ok());
+
+        // Enable watch
+        let enable_result = sentinel.enable_watch();
+        assert!(enable_result.is_ok());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_disable_enable_watch_no_watcher() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let dir = temp_dir.path().to_string_lossy().to_string();
+        let config = Config {
+            commands: HashMap::new(),
+        };
+        let mut sentinel = Sentinel::new(dir.clone(), config)?;
+
+        // Disable watch when no watcher is initialized
+        let disable_result = sentinel.disable_watch();
+        assert!(disable_result.is_ok());
+
+        // Enable watch when no watcher is initialized
+        let enable_result = sentinel.enable_watch();
+        assert!(enable_result.is_ok());
+
+        Ok(())
+    }
+}
