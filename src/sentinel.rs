@@ -27,39 +27,67 @@ impl Sentinel {
         })
     }
 
-    pub async fn watch(&mut self) -> Result<()> {
+    pub async fn watch(
+        &mut self,
+        mut stop_receiver: Option<tokio::sync::mpsc::Receiver<()>>,
+    ) -> Result<()> {
         let (tx, rx) = mpsc::channel::<Result<Event>>();
         let mut watcher = recommended_watcher(tx)?;
         watcher.watch(Path::new(&self.dir), RecursiveMode::Recursive)?;
         self.watcher = Some(watcher);
 
-        let mut last_event: Option<(PathBuf, Instant)> = None;
+        let (file_tx, mut file_rx) = tokio::sync::mpsc::channel::<PathBuf>(100);
+
+        let _ = tokio::task::spawn(async move {
+            let mut last_event: Option<(PathBuf, Instant)> = None;
+
+            while let Ok(res) = rx.recv() {
+                match res {
+                    Ok(event) => match event.kind {
+                        EventKind::Modify(ModifyKind::Data(_)) => {
+                            let current_path = &event.paths[0];
+
+                            // Debounce events
+                            // Check if the event is a duplicate
+                            if let Some((last_path, last_time)) = &last_event {
+                                if last_path == current_path
+                                    && last_time.elapsed() < Duration::from_millis(500)
+                                {
+                                    // Ignore duplicate event
+                                    continue;
+                                }
+                            }
+
+                            // Update the last event
+                            last_event = Some((current_path.clone(), time::Instant::now()));
+                            let _ = file_tx.send(current_path.clone()).await;
+                        }
+                        _ => continue,
+                    },
+                    Err(e) => println!("watch error: {:?}", e),
+                }
+            }
+        });
 
         println!("Watching for changes...");
-        for res in rx {
-            match res {
-                Ok(event) => match event.kind {
-                    EventKind::Modify(ModifyKind::Data(_)) => {
-                        let current_path = &event.paths[0];
 
-                        // Debounce events
-                        // Check if the event is a duplicate
-                        if let Some((last_path, last_time)) = &last_event {
-                            if last_path == current_path
-                                && last_time.elapsed() < Duration::from_millis(500)
-                            {
-                                // Ignore duplicate event
-                                continue;
-                            }
-                        }
-
-                        // Update the last event
-                        last_event = Some((current_path.clone(), time::Instant::now()));
-                        self.process_file(&event.paths[0]).await?
+        if let Some(stop_receiver) = &mut stop_receiver {
+            loop {
+                tokio::select! {
+                    Some(path) = file_rx.recv() => {
+                        self.process_file(&path).await?;
                     }
-                    _ => continue,
-                },
-                Err(e) => println!("watch error: {:?}", e),
+                    _ = stop_receiver.recv() => {
+                        println!("Stopping watcher...");
+                        break;
+                    }
+                }
+            }
+        } else {
+            loop {
+                if let Some(path) = file_rx.recv().await {
+                    self.process_file(&path).await?;
+                }
             }
         }
 
@@ -167,7 +195,7 @@ mod tests {
         let mut sentinel = Sentinel::new(dir, config)?;
 
         let file_path = temp_dir.path().join("test.txt");
-        let _ = fs::write(&file_path, "test content");
+        let _ = fs::write(&file_path, "test content").await;
 
         let result = sentinel.process_file(file_path.as_path()).await;
         assert!(result.is_ok());
@@ -185,7 +213,7 @@ mod tests {
         let mut sentinel = Sentinel::new(dir, config)?;
 
         let file_path = temp_dir.path().join("test.txt");
-        let _ = fs::write(&file_path, "test content");
+        let _ = fs::write(&file_path, "test content").await;
 
         let result = sentinel.process_file(file_path.as_path()).await;
         assert!(result.is_ok());

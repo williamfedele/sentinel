@@ -13,7 +13,8 @@ struct Cli {
     dir: String,
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let cli = Cli::parse();
     let config = match config::Config::load_config(cli.dir.clone()) {
         Some(config) => config,
@@ -34,6 +35,7 @@ fn main() -> Result<()> {
     };
 
     let mut sentinel = Sentinel::new(cli.dir, config)?;
-    futures::executor::block_on(sentinel.watch())?;
+
+    sentinel.watch(None).await?;
     Ok(())
 }
